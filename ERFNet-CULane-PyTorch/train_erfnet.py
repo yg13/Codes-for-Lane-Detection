@@ -10,7 +10,7 @@ import cv2
 import utils.transforms as tf
 import numpy as np
 import models
-from models import sync_bn
+# from models import sync_bn
 import dataset as ds
 from options.options import parser
 
@@ -24,8 +24,8 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(gpu) for gpu in args.gpus)
     args.gpus = len(args.gpus)
 
-    if args.no_partialbn:
-        sync_bn.Synchronize.init(args.gpus)
+    # if args.no_partialbn:
+    #     sync_bn.Synchronize.init(args.gpus)
 
     if args.dataset == 'VOCAug' or args.dataset == 'VOC2012' or args.dataset == 'COCO':
         num_class = 21
@@ -136,7 +136,7 @@ def train(train_loader, model, criterion, criterion_exist, optimizer, epoch):
 
     if args.no_partialbn:
         model.module.partialBN(False)
-        sync_bn.convert_bn(model)
+        # sync_bn.convert_bn(model)
     else:
         model.module.partialBN(True)
 
@@ -148,8 +148,8 @@ def train(train_loader, model, criterion, criterion_exist, optimizer, epoch):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        target = target.cuda(async=True)
-        target_exist = target_exist.float().cuda(async=True)
+        target = target.cuda()
+        target_exist = target_exist.float().cuda()
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
         target_exist_var = torch.autograd.Variable(target_exist)
@@ -162,8 +162,8 @@ def train(train_loader, model, criterion, criterion_exist, optimizer, epoch):
         loss_tot = loss + loss_exist * 0.1
 
         # measure accuracy and record loss
-        losses.update(loss.data[0], input.size(0))
-        losses_exist.update(loss_exist.data[0], input.size(0))
+        losses.update(loss.item(), input.size(0))
+        losses_exist.update(loss_exist.item(), input.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -200,7 +200,7 @@ def validate(val_loader, model, criterion, iter, evaluator, logger=None):
 
     end = time.time()
     for i, (input, target, target_exist) in enumerate(val_loader):
-        target = target.cuda(async=True)
+        target = target.cuda()
         input_var = torch.autograd.Variable(input, volatile=True)
         target_var = torch.autograd.Variable(target)
 
@@ -213,7 +213,7 @@ def validate(val_loader, model, criterion, iter, evaluator, logger=None):
         pred = output.data.cpu().numpy().transpose(0, 2, 3, 1)
         pred = np.argmax(pred, axis=3).astype(np.uint8)
         IoU.update(evaluator(pred, target.cpu().numpy()))
-        losses.update(loss.data[0], input.size(0))
+        losses.update(loss.item(), input.size(0))
 
         # measure elapsed time
         batch_time.update(time.time() - end)

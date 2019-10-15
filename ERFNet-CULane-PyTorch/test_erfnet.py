@@ -10,7 +10,7 @@ import cv2
 import utils.transforms as tf
 import numpy as np
 import models
-from models import sync_bn
+# from models import sync_bn
 import dataset as ds
 from options.options import parser
 import torch.nn.functional as F
@@ -25,8 +25,8 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(gpu) for gpu in args.gpus)
     args.gpus = len(args.gpus)
 
-    if args.no_partialbn:
-        sync_bn.Synchronize.init(args.gpus)
+    # if args.no_partialbn:
+    #     sync_bn.Synchronize.init(args.gpus)
 
     if args.dataset == 'VOCAug' or args.dataset == 'VOC2012' or args.dataset == 'COCO':
         num_class = 21
