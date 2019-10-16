@@ -79,10 +79,7 @@ class LaneDataset(Dataset):
         #     image = torch.from_numpy(image).permute(2, 0, 1).contiguous().float()
         #     label = torch.from_numpy(label).contiguous().long()
 
-        if self.is_testing:
-            return image, label, self.img[idx]
-        else:
-            return image, label
+        return image, label, idx
 
     def init_dataset_3D(self, dataset_base_dir, json_file_path):
         """
