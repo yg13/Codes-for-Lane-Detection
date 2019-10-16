@@ -281,10 +281,12 @@ class ERFNet(nn.Module):
             },
         ]
 
-    def forward(self, input, only_encode=False):
+    def forward(self, input, only_encode=False, no_lane_exist=False):
         '''if only_encode:
             return self.encoder.forward(input, predict=True)
         else:'''
         output = self.encoder(input)    #predict=False by default
+        if no_lane_exist:
+            return self.decoder.forward(output)
         return self.decoder.forward(output), self.lane_exist(output)
 
