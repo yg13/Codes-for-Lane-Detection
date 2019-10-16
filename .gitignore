@@ -3,3 +3,4 @@ venv
 predicts
 __pycache__
 *~
+*.json
