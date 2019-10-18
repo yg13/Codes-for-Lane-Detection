@@ -99,7 +99,7 @@ def main():
         validate(val_loader, model, criterion, 0, evaluator, True)
         return
 
-    for epoch in range(args.epochs): # args.start_epoch
+    for epoch in range(args.start_epoch, args.epochs): # args.start_epoch
         adjust_learning_rate(optimizer, epoch, args.lr_steps)
 
         # train for one epoch
@@ -204,10 +204,14 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
         # save output visualization
         if evaluate:
             for cnt in range(len(idx)):
-                prob_map = (pred[cnt][1] * 255).astype(int)
+                # prob_map = pred[cnt][1]
+                # prob_map[prob_map < 0] = 0
+                # prob_map = cv2.blur(prob_map, (9, 9))
+                # cv2.imshow('check probmap', prob_map)
+                # cv2.waitKey()
+                prob_map = (pred[cnt][1] * 255).astype(np.int)
+                # prob_map = cv2.blur(prob_map, (9, 9))
                 cv2.imwrite(directory + '/image_{}.png'.format(idx[cnt]), prob_map)
-                # save_img = cv2.blur(prob_map, (9, 9))
-                # cv2.imwrite(directory + '/image_{}.png'.format(idx[cnt]), save_img)
 
         # measure accuracy and record loss
         pred = pred.transpose(0, 2, 3, 1)
@@ -218,8 +222,6 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-
-
 
         if (i + 1) % args.print_freq == 0:
             acc = np.sum(np.diag(IoU.sum)) / float(np.sum(IoU.sum))
