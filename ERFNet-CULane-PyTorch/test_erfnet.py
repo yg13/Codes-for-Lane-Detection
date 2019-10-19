@@ -121,8 +121,8 @@ def validate(val_loader, model, criterion, iter, evaluator, logger=None):
             file_exist = open('predicts/vgg_SCNN_DULR_w9'+img_name[cnt].replace('.jpg', '.exist.txt'), 'w')
             for num in range(4):
                 prob_map = (pred[cnt][num+1]*255).astype(int)
-                save_img = cv2.blur(prob_map,(9,9))
-                cv2.imwrite('predicts/vgg_SCNN_DULR_w9'+img_name[cnt].replace('.jpg', '_'+str(num+1)+'_avg.png'), save_img)
+                # prob_map = cv2.blur(prob_map,(9,9))
+                cv2.imwrite('predicts/vgg_SCNN_DULR_w9'+img_name[cnt].replace('.jpg', '_'+str(num+1)+'_avg.png'), prob_map)
                 if pred_exist[cnt][num] > 0.5:
                     file_exist.write('1 ')
                 else:

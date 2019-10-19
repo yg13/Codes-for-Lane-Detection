@@ -13,6 +13,7 @@ import models
 # from models import sync_bn
 import dataset.sim3d_dataset as ds
 from options.options import parser
+import torch.nn.functional as F
 
 best_mIoU = 0
 
@@ -34,7 +35,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(gpu) for gpu in args.gpus)
     args.gpus = len(args.gpus)
     args.evaluate = True
-    args.resume = 'trained_sim3d/_erfnet_model_best.pth.tar'
+    args.resume = 'trained_sim3d/_erfnet_checkpoint.pth.tar'
 
     # if args.no_partialbn:
     #     sync_bn.Synchronize.init(args.gpus)
@@ -88,7 +89,7 @@ def main():
     val_loader.is_testing = True
 
     # define loss function (criterion) optimizer and evaluator
-    weights = [0.2, 0.8]
+    weights = [0.1, 0.9]
     class_weights = torch.FloatTensor(weights).cuda()
     criterion = torch.nn.NLLLoss(ignore_index=ignore_label, weight=class_weights).cuda()
     # criterion_exist = torch.nn.BCELoss().cuda()
@@ -200,6 +201,7 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
         output = model(input_var, no_lane_exist=True)
         loss = criterion(torch.nn.functional.log_softmax(output, dim=1), target_var)
 
+        output = F.softmax(output, dim=1)
         pred = output.data.cpu().numpy()
         # save output visualization
         if evaluate:
