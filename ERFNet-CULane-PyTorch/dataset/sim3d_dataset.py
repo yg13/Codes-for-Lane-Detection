@@ -71,7 +71,8 @@ class LaneDataset(Dataset):
             for j in range(len(x_2d) - 1):
                 label = cv2.line(label,
                                      (int(x_2d[j]), int(y_2d[j])), (int(x_2d[j+1]), int(y_2d[j+1])),
-                                     color=np.asscalar(np.array([1])), thickness=5)
+                                     color=np.asscalar(np.array([1])), thickness=3)
+
         label = torch.from_numpy(label.astype(np.int32)).contiguous().long()
 
         # if self.transform:

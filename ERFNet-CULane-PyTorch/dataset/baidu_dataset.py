@@ -40,7 +40,6 @@ class LaneDataset(Dataset):
     def __getitem__(self, idx):
         img_name = self._label_image_path[idx]
 
-
         with open(img_name, 'rb') as f:
             image = (Image.open(f).convert('RGB'))
 
@@ -50,7 +49,7 @@ class LaneDataset(Dataset):
         if self.data_aug:
             img_rot, aug_mat = data_aug_rotate(image)
             image = Image.fromarray(img_rot)
-        image = self.totensor(image).float()
+        image = self.totensor(image).contiguous().float()
         image = self.normalize(image)
 
         # prepare binary segmentation label map
@@ -66,7 +65,7 @@ class LaneDataset(Dataset):
                 # TODO: consider multi-class labels as they are there or keep using binary labels
                 label = cv2.line(label,
                                      (int(x_2d[j]), int(y_2d[j])), (int(x_2d[j+1]), int(y_2d[j+1])),
-                                     color=np.asscalar(np.array([1])), thickness=5)
+                                     color=np.asscalar(np.array([1])), thickness=3)
         label = torch.from_numpy(label.astype(np.int32)).contiguous().long()
 
         # if self.transform:

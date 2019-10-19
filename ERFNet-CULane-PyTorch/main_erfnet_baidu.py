@@ -31,7 +31,7 @@ def main():
 
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(gpu) for gpu in args.gpus)
     args.gpus = len(args.gpus)
-    args.evaluate = True
+    args.evaluate = False
     args.resume = 'trained_baidu/_erfnet_checkpoint.pth.tar'
 
     # if args.no_partialbn:
@@ -87,7 +87,7 @@ def main():
     val_loader.is_testing = True
 
     # define loss function (criterion) optimizer and evaluator
-    weights = [0.1, 0.9]
+    weights = [0.4, 1.0]
     class_weights = torch.FloatTensor(weights).cuda()
     criterion = torch.nn.NLLLoss(ignore_index=ignore_label, weight=class_weights).cuda()
     # criterion_exist = torch.nn.BCELoss().cuda()
@@ -139,6 +139,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         data_time.update(time.time() - end)
 
         target = target.cuda()
+        input = input.contiguous()
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
 
@@ -186,14 +187,14 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
     # switch to evaluate mode
     model.eval()
 
-    if evaluate:
-        directory = 'predicts/baidu/output'
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+    directory = 'predicts/baidu/output'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     end = time.time()
     for i, (input, target, idx) in enumerate(val_loader):
         target = target.cuda()
+        input = input.contiguous()
         input_var = torch.autograd.Variable(input, volatile=True)
         target_var = torch.autograd.Variable(target)
 
@@ -215,6 +216,10 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
                 # prob_map = (target.cpu().numpy()[cnt] * 255).astype(np.int)
                 # prob_map = cv2.blur(prob_map, (9, 9))
                 cv2.imwrite(directory + '/image_{}.png'.format(idx[cnt]), prob_map)
+        else:
+            prob_map = (pred[0][1] * 255).astype(np.int)
+            # prob_map = cv2.blur(prob_map, (9, 9))
+            cv2.imwrite(directory + '/image_{}.png'.format(idx[0]), prob_map)
 
         # measure accuracy and record loss
         pred = pred.transpose(0, 2, 3, 1)
