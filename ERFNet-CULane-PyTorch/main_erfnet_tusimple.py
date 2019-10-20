@@ -31,8 +31,8 @@ def main():
 
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(gpu) for gpu in args.gpus)
     args.gpus = len(args.gpus)
-    args.evaluate = False
-    args.resume = 'trained_tusimple/_erfnet_checkpoint.pth.tar'
+    args.evaluate = True
+    args.resume = 'trained_tusimple/_erfnet_model_best.pth.tar'
 
     # if args.no_partialbn:
     #     sync_bn.Synchronize.init(args.gpus)
@@ -54,7 +54,7 @@ def main():
         for name, param in state_dict.items():
             if name not in list(own_state.keys()) or 'output_conv' in name:
                 ckpt_name.append(name)
-                continue
+                # continue
             own_state[name].copy_(param)
             cnt += 1
         print('#reused param: {}'.format(cnt))
@@ -192,52 +192,53 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
         os.makedirs(directory)
 
     end = time.time()
-    for i, (input, target, idx) in enumerate(val_loader):
-        target = target.cuda()
-        input = input.contiguous()
-        input_var = torch.autograd.Variable(input, volatile=True)
-        target_var = torch.autograd.Variable(target)
+    with torch.no_grad():
+        for i, (input, target, idx) in enumerate(val_loader):
+            target = target.cuda()
+            input = input.contiguous()
+            input_var = torch.autograd.Variable(input)
+            target_var = torch.autograd.Variable(target)
 
-        # compute output
-        output = model(input_var, no_lane_exist=True)
-        loss = criterion(torch.nn.functional.log_softmax(output, dim=1), target_var)
+            # compute output
+            output = model(input_var, no_lane_exist=True)
+            loss = criterion(torch.nn.functional.log_softmax(output, dim=1), target_var)
 
-        output = F.softmax(output, dim=1)
-        pred = output.data.cpu().numpy()
-        # save output visualization
-        if evaluate:
-            for cnt in range(len(idx)):
-                # prob_map = pred[cnt][1]
-                # prob_map[prob_map < 0] = 0
+            output = F.softmax(output, dim=1)
+            pred = output.data.cpu().numpy()
+            # save output visualization
+            if evaluate:
+                for cnt in range(len(idx)):
+                    # prob_map = pred[cnt][1]
+                    # prob_map[prob_map < 0] = 0
+                    # prob_map = cv2.blur(prob_map, (9, 9))
+                    # cv2.imshow('check probmap', prob_map)
+                    # cv2.waitKey()
+                    prob_map = (pred[cnt][1] * 255).astype(np.int)
+                    # prob_map = (target.cpu().numpy()[cnt] * 255).astype(np.int)
+                    # prob_map = cv2.blur(prob_map, (9, 9))
+                    cv2.imwrite(directory + '/image_{}.png'.format(idx[cnt]), prob_map)
+            else:
+                prob_map = (pred[0][1] * 255).astype(np.int)
                 # prob_map = cv2.blur(prob_map, (9, 9))
-                # cv2.imshow('check probmap', prob_map)
-                # cv2.waitKey()
-                prob_map = (pred[cnt][1] * 255).astype(np.int)
-                # prob_map = (target.cpu().numpy()[cnt] * 255).astype(np.int)
-                # prob_map = cv2.blur(prob_map, (9, 9))
-                cv2.imwrite(directory + '/image_{}.png'.format(idx[cnt]), prob_map)
-        else:
-            prob_map = (pred[0][1] * 255).astype(np.int)
-            # prob_map = cv2.blur(prob_map, (9, 9))
-            cv2.imwrite(directory + '/image_{}.png'.format(idx[0]), prob_map)
+                cv2.imwrite(directory + '/image_{}.png'.format(idx[0]), prob_map)
 
-        # measure accuracy and record loss
-        pred = pred.transpose(0, 2, 3, 1)
-        pred = np.argmax(pred, axis=3).astype(np.uint8)
-        IoU.update(evaluator(pred, target.cpu().numpy()))
-        losses.update(loss.item(), input.size(0))
+            # measure accuracy and record loss
+            pred = pred.transpose(0, 2, 3, 1)
+            pred = np.argmax(pred, axis=3).astype(np.uint8)
+            IoU.update(evaluator(pred, target.cpu().numpy()))
+            losses.update(loss.item(), input.size(0))
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
 
-        if (i + 1) % args.print_freq == 0:
-            acc = np.sum(np.diag(IoU.sum)) / float(np.sum(IoU.sum))
-            mIoU = np.diag(IoU.sum) / (1e-20 + IoU.sum.sum(1) + IoU.sum.sum(0) - np.diag(IoU.sum))
-            mIoU = np.sum(mIoU) / len(mIoU)
-            print((
-                      'Test: [{0}/{1}]\t' 'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t' 'Loss {loss.val:.4f} ({loss.avg:.4f})\t' 'Pixels Acc {acc:.3f}\t' 'mIoU {mIoU:.3f}'.format(
-                          i, len(val_loader), batch_time=batch_time, loss=losses, acc=acc, mIoU=mIoU)))
+            if (i + 1) % args.print_freq == 0:
+                acc = np.sum(np.diag(IoU.sum)) / float(np.sum(IoU.sum))
+                mIoU = np.diag(IoU.sum) / (1e-20 + IoU.sum.sum(1) + IoU.sum.sum(0) - np.diag(IoU.sum))
+                mIoU = np.sum(mIoU) / len(mIoU)
+                print((
+                          'Test: [{0}/{1}]\t' 'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t' 'Loss {loss.val:.4f} ({loss.avg:.4f})\t' 'Pixels Acc {acc:.3f}\t' 'mIoU {mIoU:.3f}'.format(
+                              i, len(val_loader), batch_time=batch_time, loss=losses, acc=acc, mIoU=mIoU)))
 
     acc = np.sum(np.diag(IoU.sum)) / float(np.sum(IoU.sum))
     mIoU = np.diag(IoU.sum) / (1e-20 + IoU.sum.sum(1) + IoU.sum.sum(0) - np.diag(IoU.sum))

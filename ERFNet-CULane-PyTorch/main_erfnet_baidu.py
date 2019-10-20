@@ -54,7 +54,7 @@ def main():
         for name, param in state_dict.items():
             if name not in list(own_state.keys()) or 'output_conv' in name:
                 ckpt_name.append(name)
-                continue
+                # continue
             own_state[name].copy_(param)
             cnt += 1
         print('#reused param: {}'.format(cnt))

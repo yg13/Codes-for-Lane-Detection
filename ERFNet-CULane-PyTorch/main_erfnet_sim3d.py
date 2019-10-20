@@ -56,7 +56,7 @@ def main():
         for name, param in state_dict.items():
             if name not in list(own_state.keys()) or 'output_conv' in name:
                  ckpt_name.append(name)
-                 continue
+                 # continue
             own_state[name].copy_(param)
             cnt += 1
         print('#reused param: {}'.format(cnt))
@@ -208,8 +208,8 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
         if evaluate:
             for cnt in range(len(idx)):
                 # prob_map = pred[cnt][1]
-                # prob_map[prob_map < 0] = 0
-                # prob_map = cv2.blur(prob_map, (9, 9))
+                # # prob_map[prob_map < 0] = 0
+                # # prob_map = cv2.blur(prob_map, (9, 9))
                 # cv2.imshow('check probmap', prob_map)
                 # cv2.waitKey()
                 prob_map = (pred[cnt][1] * 255).astype(np.int)
