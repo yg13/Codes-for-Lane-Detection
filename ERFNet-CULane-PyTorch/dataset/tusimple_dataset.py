@@ -14,6 +14,7 @@ import torchvision.transforms.functional as F
 class LaneDataset(Dataset):
     def __init__(self, args, dataset_path='/home/yuliangguo/Datasets/tusimple/', json_file_path='list/tusimple/train.json', transform=None, data_aug=False):
         self.is_testing = ('test' in json_file_path) # 'val'
+        self.num_class = args.num_class
 
         # define image pre-processor
         self.totensor = transforms.ToTensor()
@@ -32,7 +33,8 @@ class LaneDataset(Dataset):
         self.w_net = args.resize_w
         self.H_crop = homography_crop_resize([args.org_h, args.org_w], args.crop_y, [args.resize_h, args.resize_w])
 
-        self._label_image_path, self._label_lane_pts_all = self.init_dataset(dataset_path, json_file_path)
+        self._label_image_path, self._label_lane_pts_all, \
+            self._gt_class_label_all = self.init_dataset(dataset_path, json_file_path)
 
     def __len__(self):
         return len(self._label_image_path)
@@ -53,27 +55,31 @@ class LaneDataset(Dataset):
         image = self.normalize(image)
 
         # prepare binary segmentation label map
-        label = np.zeros((self.h_net, self.w_net), dtype=np.int8)
+        label_map = np.zeros((self.h_net, self.w_net), dtype=np.int8)
         gt_lanes = self._label_lane_pts_all[idx]
+        gt_labels = self._gt_class_label_all[idx]
         for i, lane in enumerate(gt_lanes):
+            # skip the class label beyond consideration
+            if gt_labels[i] <= 0 or gt_labels[i] > self.num_class:
+                continue
+
             M = self.H_crop
             # update transformation with image augmentation
             if self.data_aug:
                 M = np.matmul(aug_mat, self.H_crop)
             x_2d, y_2d = homographic_transformation(M, lane[:, 0], lane[:, 1])
             for j in range(len(x_2d) - 1):
-                # TODO: consider multi-class labels as they are there or keep using binary labels
-                label = cv2.line(label,
-                                     (int(x_2d[j]), int(y_2d[j])), (int(x_2d[j+1]), int(y_2d[j+1])),
-                                     color=np.asscalar(np.array([1])), thickness=3)
-        label = torch.from_numpy(label.astype(np.int32)).contiguous().long()
+                label_map = cv2.line(label_map,
+                                 (int(x_2d[j]), int(y_2d[j])), (int(x_2d[j+1]), int(y_2d[j+1])),
+                                 color=np.asscalar(gt_labels[i]), thickness=3)
+        label_map = torch.from_numpy(label_map.astype(np.int32)).contiguous().long()
 
         # if self.transform:
         #     image, label = self.transform((image, label))
         #     image = torch.from_numpy(image).permute(2, 0, 1).contiguous().float()
         #     label = torch.from_numpy(label).contiguous().long()
 
-        return image, label, idx
+        return image, label_map, idx
 
     def init_dataset(self, dataset_base_dir, json_file_path):
         """
@@ -87,6 +93,7 @@ class LaneDataset(Dataset):
         # load image path, and lane pts
         label_image_path = []
         gt_lane_pts_all = []
+        gt_class_label_all = []
 
         assert ops.exists(json_file_path), '{:s} not exist'.format(json_file_path)
 
@@ -99,11 +106,11 @@ class LaneDataset(Dataset):
                 image_path = ops.join(dataset_base_dir, info_dict['raw_file'])
                 assert ops.exists(image_path), '{:s} not exist'.format(image_path)
 
-                label_image_path.append(image_path)
-
                 gt_lane_pts_X = info_dict['lanes']
                 gt_y_steps = np.array(info_dict['h_samples'])
                 gt_lane_pts = []
+                gt_starting_x = []
+                y2 = gt_y_steps[-1]
 
                 for i, lane_x in enumerate(gt_lane_pts_X):
                     lane = np.zeros([gt_y_steps.shape[0], 2], dtype=np.float32)
@@ -118,9 +125,33 @@ class LaneDataset(Dataset):
                         continue
 
                     gt_lane_pts.append(lane)
+                    x0 = lane[-2, 0]
+                    y0 = lane[-2, 1]
+                    x1 = lane[-1, 0]
+                    y1 = lane[-1, 1]
+
+                    x2 = x0 + (y2 - y0) / (y1 - y0) * (x1 - x0)
+                    gt_starting_x.append(x2)
+
+                #  determine the ego id based on interpolated x value at the bottom of the image
+                gt_starting_x = np.array(gt_starting_x)
+                sort_id = np.argsort(gt_starting_x)
+                gt_starting_x = gt_starting_x[sort_id]
+                first_pos_idx = np.where(gt_starting_x > self.w_org/2)[0]
+                if len(first_pos_idx) == 0:
+                    first_pos_idx = len(sort_id)
+                else:
+                    first_pos_idx = first_pos_idx[0]
+                class_diff = self.num_class / 2 + 1 - first_pos_idx
+                gt_class = np.array([idx for idx in range(gt_starting_x.shape[0])]) + class_diff
+                # attention: some image do not have have
+                gt_class_label_all.append(gt_class)
+                label_image_path.append(image_path)
+                gt_lane_pts = [gt_lane_pts[ind] for ind in sort_id]
                 gt_lane_pts_all.append(gt_lane_pts)
+
         label_image_path = np.array(label_image_path)
-        return label_image_path, gt_lane_pts_all
+        return label_image_path, gt_lane_pts_all, gt_class_label_all
 
 
 def projection_g2im(cam_pitch, cam_height, K):

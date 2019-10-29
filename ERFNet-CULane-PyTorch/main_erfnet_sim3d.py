@@ -41,7 +41,8 @@ def main():
     #     sync_bn.Synchronize.init(args.gpus)
 
     args.dataset = 'sim3d'
-    num_class = 2
+    num_class = 7
+    args.num_class = num_class-1
     ignore_label = 255
 
     model = models.ERFNet(num_class, partial_bn=not args.no_partialbn)
@@ -89,7 +90,8 @@ def main():
     val_loader.is_testing = True
 
     # define loss function (criterion) optimizer and evaluator
-    weights = [0.4, 1.0]
+    weights = [1.0 for _ in range(num_class)]
+    weights[0] = 0.4
     class_weights = torch.FloatTensor(weights).cuda()
     criterion = torch.nn.NLLLoss(ignore_index=ignore_label, weight=class_weights).cuda()
     # criterion_exist = torch.nn.BCELoss().cuda()
@@ -207,17 +209,12 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
         # save output visualization
         if evaluate:
             for cnt in range(len(idx)):
-                # prob_map = pred[cnt][1]
-                # # prob_map[prob_map < 0] = 0
-                # # prob_map = cv2.blur(prob_map, (9, 9))
-                # cv2.imshow('check probmap', prob_map)
-                # cv2.waitKey()
-                prob_map = (pred[cnt][1] * 255).astype(np.int)
-                # prob_map = cv2.blur(prob_map, (9, 9))
+                prob_map = np.max(pred[cnt, 1:, :, :], axis=0)
+                prob_map = (prob_map * 255).astype(np.int)
                 cv2.imwrite(directory + '/image_{}.png'.format(idx[cnt]), prob_map)
         else:
-            prob_map = (pred[0][1] * 255).astype(np.int)
-            # prob_map = cv2.blur(prob_map, (9, 9))
+            prob_map = np.max(pred[0, 1:, :, :], axis=0)
+            prob_map = (prob_map * 255).astype(np.int)
             cv2.imwrite(directory + '/image_{}.png'.format(idx[0]), prob_map)
 
         # measure accuracy and record loss

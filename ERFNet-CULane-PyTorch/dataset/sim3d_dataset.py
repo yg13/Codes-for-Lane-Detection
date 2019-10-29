@@ -14,6 +14,7 @@ import torchvision.transforms.functional as F
 class LaneDataset(Dataset):
     def __init__(self, args, dataset_path='/home/yuliangguo/Datasets//home/yuliangguo/Datasets/Apollo_Sim_3D_Lane_0924', json_file_path='list/sim3d_0924/train.json', transform=None, data_aug=False):
         self.is_testing = ('test' in json_file_path) # 'val'
+        self.num_class = args.num_class
 
         # define image pre-processor
         self.totensor = transforms.ToTensor()
@@ -34,7 +35,8 @@ class LaneDataset(Dataset):
         self.H_crop = homography_crop_resize([args.org_h, args.org_w], args.crop_y, [args.resize_h, args.resize_w])
 
         self._label_image_path, self._label_laneline_all,\
-            self._gt_cam_height_all, self._gt_cam_pitch_all = self.init_dataset_3D(dataset_path, json_file_path)
+            self._gt_cam_height_all, self._gt_cam_pitch_all,\
+            self._gt_class_label_all = self.init_dataset_3D(dataset_path, json_file_path)
 
     def __len__(self):
         return len(self._label_image_path)
@@ -57,9 +59,14 @@ class LaneDataset(Dataset):
         image = self.normalize(image)
 
         # prepare binary segmentation label map
-        label = np.zeros((self.h_net, self.w_net), dtype=np.int8)
+        label_map = np.zeros((self.h_net, self.w_net), dtype=np.int8)
         gt_lanes = self._label_laneline_all[idx]
+        gt_labels = self._gt_class_label_all[idx]
         for i, lane in enumerate(gt_lanes):
+            # skip the class label beyond consideration
+            if gt_labels[i] <= 0 or gt_labels[i] > self.num_class:
+                continue
+
             P_g2im = projection_g2im(cam_pitch, cam_height, self.K)
             M = np.matmul(self.H_crop, P_g2im)
 
@@ -69,18 +76,18 @@ class LaneDataset(Dataset):
             x_2d, y_2d = projective_transformation(M, lane[:, 0],
                                                    lane[:, 1], lane[:, 2])
             for j in range(len(x_2d) - 1):
-                label = cv2.line(label,
-                                     (int(x_2d[j]), int(y_2d[j])), (int(x_2d[j+1]), int(y_2d[j+1])),
-                                     color=np.asscalar(np.array([1])), thickness=3)
+                label_map = cv2.line(label_map,
+                                 (int(x_2d[j]), int(y_2d[j])), (int(x_2d[j+1]), int(y_2d[j+1])),
+                                 color=np.asscalar(gt_labels[i]), thickness=3)
 
-        label = torch.from_numpy(label.astype(np.int32)).contiguous().long()
+        label_map = torch.from_numpy(label_map.astype(np.int32)).contiguous().long()
 
         # if self.transform:
         #     image, label = self.transform((image, label))
         #     image = torch.from_numpy(image).permute(2, 0, 1).contiguous().float()
         #     label = torch.from_numpy(label).contiguous().long()
 
-        return image, label, idx
+        return image, label_map, idx
 
     def init_dataset_3D(self, dataset_base_dir, json_file_path):
         """
@@ -94,9 +101,9 @@ class LaneDataset(Dataset):
         # load image path, and lane pts
         label_image_path = []
         gt_laneline_pts_all = []
-        gt_laneline_visibility_all = []
         gt_cam_height_all = []
         gt_cam_pitch_all = []
+        gt_class_label_all = []
 
         assert ops.exists(json_file_path), '{:s} not exist'.format(json_file_path)
 
@@ -107,20 +114,34 @@ class LaneDataset(Dataset):
                 image_path = ops.join(dataset_base_dir, info_dict['raw_file'])
                 assert ops.exists(image_path), '{:s} not exist'.format(image_path)
 
-                label_image_path.append(image_path)
-
                 gt_lane_pts = info_dict['laneLines']
                 gt_lane_visibility = info_dict['laneLines_visibility']
+                if len(gt_lane_pts) == 0:
+                    continue
+
+                label_image_path.append(image_path)
+                gt_starting_x = []
                 for i, lane in enumerate(gt_lane_pts):
                     # A GT lane can be either 2D or 3D
                     # if a GT lane is 3D, the height is intact from 3D GT, so keep it intact here too
                     lane = np.array(lane)
                     gt_lane_pts[i] = lane
                     gt_lane_visibility[i] = np.array(gt_lane_visibility[i])
+                    gt_starting_x.append(lane[0, 0])
                 gt_lane_pts = [prune_3d_lane_by_visibility(gt_lane, gt_lane_visibility[k]) for k, gt_lane in
                                enumerate(gt_lane_pts)]
+
+                # determine gt laneline's ego id by its starting x position
+                gt_starting_x = np.array(gt_starting_x)
+                sort_id = np.argsort(gt_starting_x)
+                gt_starting_x = gt_starting_x[sort_id]
+                first_pos_idx = np.where(gt_starting_x > 0)[0][0]
+                class_diff = self.num_class/2+1-first_pos_idx
+                gt_class = np.array([idx for idx in range(gt_starting_x.shape[0])]) + class_diff
+                gt_class_label_all.append(gt_class)
+
+                gt_lane_pts = [gt_lane_pts[ind] for ind in sort_id]
                 gt_laneline_pts_all.append(gt_lane_pts)
-                gt_laneline_visibility_all.append(gt_lane_visibility)
 
                 gt_cam_height = info_dict['cam_height']
                 gt_cam_height_all.append(gt_cam_height)
@@ -131,7 +152,7 @@ class LaneDataset(Dataset):
         gt_cam_height_all = np.array(gt_cam_height_all)
         gt_cam_pitch_all = np.array(gt_cam_pitch_all)
 
-        return label_image_path, gt_laneline_pts_all, gt_cam_height_all, gt_cam_pitch_all
+        return label_image_path, gt_laneline_pts_all, gt_cam_height_all, gt_cam_pitch_all, gt_class_label_all
 
 
 def projection_g2im(cam_pitch, cam_height, K):
