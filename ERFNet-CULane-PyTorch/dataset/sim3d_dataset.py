@@ -12,7 +12,7 @@ import torchvision.transforms.functional as F
 
 
 class LaneDataset(Dataset):
-    def __init__(self, args, dataset_path='/home/yuliangguo/Datasets//home/yuliangguo/Datasets/Apollo_Sim_3D_Lane_0924', json_file_path='list/sim3d_0924/train.json', transform=None, data_aug=False):
+    def __init__(self, args, dataset_path, json_file_path, transform=None, data_aug=False):
         self.is_testing = ('test' in json_file_path) # 'val'
         self.num_class = args.num_class
 

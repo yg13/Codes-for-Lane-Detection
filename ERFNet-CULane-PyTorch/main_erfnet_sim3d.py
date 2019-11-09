@@ -19,6 +19,18 @@ best_mIoU = 0
 
 
 def main():
+    dataset_folder = '/home/yuliangguo/Datasets/Apollo_Sim_3D_Lane_Final'
+    train_file = 'list/sim3d_final/train.json'
+    val_file = 'list/sim3d_final/val.json'
+    global directory
+    directory = 'predicts/sim3d_final/output'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    global model_save_folder
+    model_save_folder = 'trained_sim3d_final_7class'
+    if not os.path.exists(model_save_folder):
+        os.makedirs(model_save_folder)
+
     global args, best_mIoU
     args = parser.parse_args()
     args.org_h = 1080
@@ -35,7 +47,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(str(gpu) for gpu in args.gpus)
     args.gpus = len(args.gpus)
     args.evaluate = False
-    args.resume = 'trained_sim3d/_erfnet_checkpoint.pth.tar'
+    args.resume = model_save_folder + '/_erfnet_checkpoint.pth.tar'
 
     # if args.no_partialbn:
     #     sync_bn.Synchronize.init(args.gpus)
@@ -78,13 +90,11 @@ def main():
     cudnn.fastest = True
 
     # Data loading code
-    train_dataset = ds.LaneDataset(args, '/home/yuliangguo/Datasets/Apollo_Sim_3D_Lane_0924',
-                                   'list/sim3d_0924/train.json', data_aug=True)
+    train_dataset = ds.LaneDataset(args, dataset_folder, train_file, data_aug=True)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
                                                shuffle=True, num_workers=args.workers, pin_memory=False, drop_last=True)
 
-    val_dataset = ds.LaneDataset(args, '/home/yuliangguo/Datasets/Apollo_Sim_3D_Lane_0924',
-                                 'list/sim3d_0924/val.json', data_aug=False)
+    val_dataset = ds.LaneDataset(args, dataset_folder, val_file, data_aug=False)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size,
                                              shuffle=False, num_workers=args.workers, pin_memory=False)
     val_loader.is_testing = True
@@ -189,10 +199,6 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
     # switch to evaluate mode
     model.eval()
 
-    directory = 'predicts/sim3d_0924/output'
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
     end = time.time()
     for i, (input, target, idx) in enumerate(val_loader):
         target = target.cuda()
@@ -242,12 +248,10 @@ def validate(val_loader, model, criterion, iter, evaluator, evaluate=False):
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    if not os.path.exists('trained_sim3d'):
-        os.makedirs('trained_sim3d')
-    filename = os.path.join('trained_sim3d', '_'.join((args.snapshot_pref, args.method.lower(), filename)))
+    filename = os.path.join(model_save_folder, '_'.join((args.snapshot_pref, args.method.lower(), filename)))
     torch.save(state, filename)
     if is_best:
-        best_name = os.path.join('trained_sim3d', '_'.join((args.snapshot_pref, args.method.lower(), 'model_best.pth.tar')))
+        best_name = os.path.join(model_save_folder, '_'.join((args.snapshot_pref, args.method.lower(), 'model_best.pth.tar')))
         shutil.copyfile(filename, best_name)
 
 
