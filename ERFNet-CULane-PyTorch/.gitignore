@@ -1,0 +1,8 @@
+# Directories
+predicts
+trained_*
+.*
+!/.gitignore
+# temporary files
+*~
+*.pyc
