@@ -19,15 +19,15 @@ best_mIoU = 0
 
 
 def main():
-    dataset_folder = '/home/yuliangguo/Datasets/Apollo_Sim_3D_Lane_Final'
-    train_file = 'list/sim3d_final/train.json'
-    val_file = 'list/sim3d_final/val.json'
+    dataset_folder = '/media/yuliangguo/DATA1/Datasets/Apollo_Sim_3D_Lane_Release'
+    train_file = 'list/sim3d/train.json'
+    val_file = 'list/sim3d/val.json'
     global directory
-    directory = 'predicts/sim3d_final/output'
+    directory = 'predicts/sim3d/output'
     if not os.path.exists(directory):
         os.makedirs(directory)
     global model_save_folder
-    model_save_folder = 'trained_sim3d_final_7class'
+    model_save_folder = 'trained_sim3d'
     if not os.path.exists(model_save_folder):
         os.makedirs(model_save_folder)
 
@@ -53,7 +53,7 @@ def main():
     #     sync_bn.Synchronize.init(args.gpus)
 
     args.dataset = 'sim3d'
-    num_class = 7
+    num_class = 2
     args.num_class = num_class-1
     ignore_label = 255
 

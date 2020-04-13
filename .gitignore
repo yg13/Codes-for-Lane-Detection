@@ -4,3 +4,5 @@ predicts
 __pycache__
 *~
 *.json
+!/list/sim3d
+
