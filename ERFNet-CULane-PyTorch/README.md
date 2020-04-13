@@ -10,11 +10,8 @@ The trained model can be used as the segmentation subnetwork in a two-stage 3D l
 
 'Gen-LaneNet: a generalized and scalable approach for 3D lane detection', Y Guo, etal. Arxiv 2020. [[paper](https://arxiv.org/abs/2003.10656)]
 
-
 ### Requirements
-- [PyTorch 0.3.0](https://pytorch.org/get-started/previous-versions/).
-- Matlab (for tools/prob2lines), version R2014a or later.
-- Opencv (for tools/lane_evaluation), version 2.4.8 (later 2.4.x should also work).
+- pytorch 1.4.0
 
 ### Data preparation
 

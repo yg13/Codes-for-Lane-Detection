@@ -1,10 +1,10 @@
 import argparse
 parser = argparse.ArgumentParser(description="PyTorch implementation of Semantic Segmentation")
 
-parser.add_argument('dataset', type=str, choices=['VOCAug', 'VOC2012', 'COCO', 'Cityscapes', 'ApolloScape', 'CULane', 'sim3d', 'baidu', 'tusimple'])
-parser.add_argument('method', type=str, choices=['FCN', 'DeepLab', 'DeepLab3', 'PSPNet', 'ERFNet'])
-parser.add_argument('train_list', type=str)
-parser.add_argument('val_list', type=str)
+parser.add_argument('--dataset', type=str, choices=['VOCAug', 'VOC2012', 'COCO', 'Cityscapes', 'ApolloScape', 'CULane', 'sim3d', 'baidu', 'tusimple'], default='sim3d')
+parser.add_argument('--method', type=str, choices=['FCN', 'DeepLab', 'DeepLab3', 'PSPNet', 'ERFNet'], default='ERFNet')
+parser.add_argument('--train_list', type=str, default='')
+parser.add_argument('--val_list', type=str, default='')
 
 # ========================= Model Configs ==========================
 parser.add_argument('--arch', type=str, default="resnet101")
@@ -35,4 +35,4 @@ parser.add_argument('--weight', default='', type=str, metavar='PATH', help='path
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true', help='evaluate model on validation set') # true
 parser.add_argument('--snapshot_pref', type=str, default="")
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N', help='manual epoch number (useful on restarts)')
-parser.add_argument('--gpus', nargs='+', type=int, default=None)
+parser.add_argument('--gpus', nargs='+', type=int, default=[0])
